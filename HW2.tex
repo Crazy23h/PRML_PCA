@@ -6,6 +6,7 @@
 \usepackage{graphicx}
 \usepackage{listings}
 \usepackage{xcolor}
+\usepackage[utf8]{inputenc}
 
 % 代码高亮设置
 \lstset{
@@ -16,7 +17,9 @@
     commentstyle=\color{green!50!black},
     showstringspaces=false,
     breaklines=true,
-    frame=single
+    frame=single,
+    inputencoding=utf8,
+    extendedchars=true
 }
 
 \ExplSyntaxOn
@@ -31,10 +34,10 @@
 \def\textpagefraction{.001}
 
 % Short title
-\shorttitle{} 
+\shorttitle{PCA-Based Face Recognition} 
 
 % Main title of the paper
-\title [mode = title]{} 
+\title [mode = title]{Face Recognition System Based on Principal Component Analysis (Eigenfaces)} 
 
 % First author
 \author[1]{Yuhang Tian}[type=editor,
@@ -49,13 +52,12 @@
 
 % Here goes the abstract
 \begin{abstract}
-
-
+This report presents a face recognition system built upon Principal Component Analysis (PCA), commonly known as the Eigenfaces method. The core PCA algorithm is implemented entirely from scratch using NumPy, exploiting the $X^T X$ trick and Singular Value Decomposition (SVD) to handle the high-dimensional image space efficiently. Experiments are conducted on the Olivetti faces dataset (40 subjects, 10 images each, $64\times64$ pixels). A 1-Nearest Neighbor classifier operating in the reduced PCA subspace is used for recognition. The system is evaluated for $k \in \{10, 20, 30, 40, 50, 80, 100\}$ principal components, and results demonstrate that recognition accuracy improves with increasing $k$ up to a point before plateauing. The report also discusses the limitations of PCA as a linear, unsupervised dimensionality reduction technique.
 \end{abstract}
 
 % Keywords
 \begin{keywords}
-
+PCA \sep Eigenfaces \sep Face Recognition \sep Dimensionality Reduction \sep Nearest Neighbor
 \end{keywords}
 
 \maketitle
@@ -63,30 +65,175 @@
 % Main text
 \section{Introduction}
 
+Face recognition is a fundamental problem in computer vision and pattern recognition with wide applications in security, authentication, and human-computer interaction. A central challenge is that raw face images are extremely high-dimensional (e.g., a $64\times64$ grayscale image yields a 4096-dimensional vector), making direct processing computationally expensive and susceptible to the curse of dimensionality.
+
+Principal Component Analysis (PCA) offers an elegant solution by projecting the data onto a lower-dimensional subspace that retains the directions of maximum variance. In the context of face recognition, PCA was popularized by Turk and Pentland~(1991) under the name \textit{Eigenfaces}. The core idea is to express each face as a linear combination of a small set of basis images---the eigenfaces---derived from the training set. Recognition is then performed by comparing compact PCA projections rather than high-dimensional raw pixels.
+
+The objective of this work is threefold: (i) implement PCA entirely from scratch using NumPy without relying on \texttt{sklearn.decomposition.PCA}; (ii) evaluate the Eigenfaces approach on the standard Olivetti faces benchmark; and (iii) analyse how the number of retained principal components~$k$ affects recognition accuracy.
 
 \section{Methods for $K$ Value Selection}
 
+\subsection{Mathematical Formulation}
+
+Let $\{x_i\}_{i=1}^{N}$ denote the training images, each flattened to a $d$-dimensional vector ($d = 4096$ for $64\times64$ images).
+
+\paragraph{Mean face and centering.}
+\begin{equation}
+    \bar{x} = \frac{1}{N}\sum_{i=1}^{N} x_i, \qquad \phi_i = x_i - \bar{x}.
+\end{equation}
+
+Let $\Phi = [\phi_1, \phi_2, \ldots, \phi_N] \in \mathbb{R}^{d \times N}$ be the centered data matrix. The covariance matrix is
+\begin{equation}
+    C = \frac{1}{N}\Phi\Phi^T \in \mathbb{R}^{d \times d}.
+\end{equation}
+The eigenvalue decomposition $C u_k = \lambda_k u_k$ gives the principal directions $u_k$, ordered by decreasing eigenvalue $\lambda_k$.
+
+\paragraph{The $X^T X$ computational trick.}
+Since $d = 4096$, the matrix $C$ is $4096\times4096$, requiring $O(d^3) \approx 6.9\times10^{10}$ floating-point operations to diagonalise---clearly infeasible. Instead, observe that for any eigenvector $v_k$ of the \emph{smaller} matrix $\tilde{C} = \Phi^T\Phi \in \mathbb{R}^{N \times N}$,
+\begin{equation}
+    \tilde{C}\,v_k = \lambda_k v_k \;\Longrightarrow\; C(\Phi v_k) = \lambda_k (\Phi v_k).
+\end{equation}
+Hence $u_k = \Phi v_k / \|\Phi v_k\|$ is an eigenvector of $C$ with the same eigenvalue $\lambda_k$. This reduces the dominant cost to $O(N^3)$ (here $N = 280 \ll d = 4096$).
+
+In practice, we use the equivalent SVD decomposition $\Phi = U S V^T$: the right singular vectors $V$ are the eigenvectors of $\tilde{C}$ and the rows of $V^T$ directly give the eigenfaces, with singular values $\sigma_k$ related to eigenvalues by $\lambda_k = \sigma_k^2 / (N-1)$.
+
+\paragraph{Projection and reconstruction.}
+Given the top-$k$ eigenfaces $U_k = [u_1, \ldots, u_k]$, a face $x$ is projected as
+\begin{equation}
+    y = U_k^T (x - \bar{x}),
+\end{equation}
+and reconstructed as
+\begin{equation}
+    \hat{x} = \bar{x} + U_k\, y.
+\end{equation}
+
+\subsection{Choosing $k$: Trade-off Between Information and Noise}
+
+The fraction of variance explained by the top-$k$ components is
+\begin{equation}
+    R(k) = \frac{\sum_{i=1}^{k}\lambda_i}{\sum_{i=1}^{d}\lambda_i}.
+\end{equation}
+A small $k$ retains only broad facial structure, discarding discriminative detail (underfitting). As $k$ grows, more variance is captured and recognition improves. However, for large $k$ the model begins incorporating components that represent noise or background variation rather than identity-discriminative features, potentially causing accuracy to plateau or slightly decrease. A practical criterion is to choose the smallest $k$ such that $R(k) \geq \tau$ (e.g., $\tau = 0.95$).
 
 \section{Experiment}
 
+\subsection{Dataset}
+The Olivetti faces dataset~(Samaria and Harter, 1994) contains 400 grayscale images from 40 subjects (10 images per subject). Each image is $64\times64$ pixels with pixel intensities normalised to $[0, 1]$.
 
+\subsection{Train/Test Split}
+For each subject, the first 7 images are used for training (280 images total) and the remaining 3 for testing (120 images total). The split ensures that test images represent unseen variations in expression, lighting, and pose.
+
+\subsection{Experimental Setup}
+\begin{itemize}
+    \item \textbf{PCA}: Implemented from scratch using NumPy SVD; no \texttt{sklearn.decomposition.PCA} is used.
+    \item \textbf{Classifier}: 1-Nearest Neighbor with Euclidean distance in the PCA-reduced space.
+    \item \textbf{$k$ values tested}: $\{10, 20, 30, 40, 50, 80, 100\}$.
+    \item \textbf{Software}: Python~3, NumPy, Matplotlib, scikit-learn (dataset loading and accuracy metric only).
+\end{itemize}
 
 \section{Results And Analysis}
 
+\subsection{Eigenfaces}
 
+Figure~\ref{fig:eigenfaces} shows the mean face and the top 10 eigenfaces computed from the training set. The mean face captures average facial structure. The leading eigenfaces encode the dominant modes of variation (e.g., overall brightness, left/right asymmetry), while later eigenfaces encode finer details.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{eigenfaces.png}
+    \caption{Mean face (leftmost) and top 10 eigenfaces extracted from the Olivetti training set.}
+    \label{fig:eigenfaces}
+\end{figure}
+
+\subsection{Recognition Accuracy vs.\ $k$}
+
+Table~\ref{tab:accuracy} and Figure~\ref{fig:accuracy} summarise recognition accuracy for each tested $k$ value.
+
+\begin{table}[htbp]
+    \centering
+    \caption{Recognition accuracy for different numbers of principal components.}
+    \label{tab:accuracy}
+    \begin{tabular}{cc}
+        \hline
+        \textbf{$k$} & \textbf{Accuracy (\%)} \\
+        \hline
+        10  & XX.X \\
+        20  & XX.X \\
+        30  & XX.X \\
+        40  & XX.X \\
+        50  & XX.X \\
+        80  & XX.X \\
+        100 & XX.X \\
+        \hline
+    \end{tabular}
+\end{table}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.8\textwidth]{accuracy_vs_k.png}
+    \caption{Face recognition accuracy as a function of the number of principal components~$k$.}
+    \label{fig:accuracy}
+\end{figure}
+
+With a small $k$ (e.g., $k = 10$), the projected features retain only coarse variance and lack fine discriminative structure, resulting in lower accuracy. As $k$ increases, accuracy rises steadily because more identity-specific information is preserved. Beyond a certain point (typically around $k = 50$--$80$ for this dataset), the gain diminishes and accuracy plateaus; very high-order components tend to encode noise, so accuracy may slightly decrease.
+
+\subsection{Prediction Examples}
+
+Figure~\ref{fig:predictions} displays representative test faces with their true and predicted labels. Correct predictions are shown with a check mark, and errors with a cross. Most misclassifications involve subjects with large intra-class variation (e.g., glasses vs.\ no glasses) or high inter-class similarity.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{prediction_examples.png}
+    \caption{Prediction examples ($k = 50$): green titles indicate correct predictions, red titles indicate errors.}
+    \label{fig:predictions}
+\end{figure}
+
+\subsection{Reconstruction Quality}
+
+Figure~\ref{fig:reconstruction} illustrates how reconstruction fidelity improves with $k$. For small $k$ the reconstruction is blurry; as $k$ grows the image sharpens, demonstrating the progressive capture of fine-grained detail.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{reconstruction.png}
+    \caption{Face reconstruction from PCA projections at different $k$ values.}
+    \label{fig:reconstruction}
+\end{figure}
+
+\subsection{Limitations}
+
+\begin{itemize}
+    \item \textbf{Linearity}: PCA can only capture linear structure. Nonlinear variations (e.g., large pose changes) are poorly handled. Kernel PCA or deep autoencoders can address this.
+    \item \textbf{Sensitivity to illumination and pose}: PCA is sensitive to global intensity shifts and out-of-plane rotations because these produce large variance in the pixel space.
+    \item \textbf{No class-discriminant information}: PCA maximises total variance, not between-class separability. Linear Discriminant Analysis (LDA/Fisherfaces) incorporates label information and often outperforms PCA for recognition tasks.
+    \item \textbf{Alignment requirement}: The approach assumes faces are roughly aligned; registration errors directly degrade performance.
+\end{itemize}
 
 \section{Comments}
 
+This report implemented and evaluated a PCA-based face recognition system (Eigenfaces) on the Olivetti faces dataset. The core PCA was built from scratch using the SVD approach to avoid computing the intractable $4096\times4096$ covariance matrix, reducing complexity from $O(d^3)$ to $O(N^3)$.
+
+\paragraph{Pros.}
+\begin{itemize}
+    \item Simple and computationally efficient.
+    \item Unsupervised---no labels required for the PCA step.
+    \item Provides compact face representations suitable for controlled environments with consistent lighting.
+\end{itemize}
+
+\paragraph{Cons.}
+\begin{itemize}
+    \item Limited to linear dimensionality reduction; cannot model nonlinear variations.
+    \item Sensitive to illumination changes and facial pose.
+    \item Ignores class-label information; purely variance-based.
+\end{itemize}
+
+\paragraph{Future work.}
+Promising extensions include supervised methods such as Linear Discriminant Analysis (LDA/Fisherfaces), nonlinear approaches such as kernel PCA and manifold learning, and modern deep convolutional neural network feature extractors that achieve near-human accuracy on large-scale benchmarks.
 
 \section{Declaration}
 I use Github Copilot to assist in understanding the code and some concepts, but I have independently completed this project.
 
 % Appendix: Source Code
 \section*{Appendix: Source Code}
-\begin{lstlisting}
-
-
-\end{lstlisting}
+\lstinputlisting[inputencoding=utf8]{pca_face_recognition.py}
 
 % To print the credit authorship contribution details
 \printcredits
