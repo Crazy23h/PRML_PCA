@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.DS_Store
+eigenfaces.png
+accuracy_vs_k.png
+prediction_examples.png
+reconstruction.png
