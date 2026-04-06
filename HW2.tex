@@ -1,0 +1,100 @@
+\documentclass[a4paper,fleqn]{cas-sc}
+
+\usepackage[authoryear,longnamesfirst]{natbib}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{xcolor}
+
+% 代码高亮设置
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\small,
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+    commentstyle=\color{green!50!black},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single
+}
+
+\ExplSyntaxOn
+\cs_gset:Npn \__first_footerline: {}
+\ExplSyntaxOff
+
+\let\printorcid\relax
+
+\begin{document}
+\let\WriteBookmarks\relax
+\def\floatpagepagefraction{1}
+\def\textpagefraction{.001}
+
+% Short title
+\shorttitle{} 
+
+% Main title of the paper
+\title [mode = title]{} 
+
+% First author
+\author[1]{Yuhang Tian}[type=editor,
+        auid=000,
+        bioid=1]
+
+% Address/affiliation
+\affiliation[1]{organization={Zhejiang University},
+            city={Hangzhou},
+            state={Zhejiang},
+            country={China}}
+
+% Here goes the abstract
+\begin{abstract}
+
+
+\end{abstract}
+
+% Keywords
+\begin{keywords}
+
+\end{keywords}
+
+\maketitle
+
+% Main text
+\section{Introduction}
+
+
+\section{Methods for $K$ Value Selection}
+
+
+\section{Experiment}
+
+
+
+\section{Results And Analysis}
+
+
+
+\section{Comments}
+
+
+\section{Declaration}
+I use Github Copilot to assist in understanding the code and some concepts, but I have independently completed this project.
+
+% Appendix: Source Code
+\section*{Appendix: Source Code}
+\begin{lstlisting}
+
+
+\end{lstlisting}
+
+% To print the credit authorship contribution details
+\printcredits
+
+%% Loading bibliography style file
+% \bibliographystyle{cas-model2-names}
+
+% Loading bibliography database
+% \bibliography{cas-refs}
+
+\end{document}
